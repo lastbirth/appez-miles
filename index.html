@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기간별 사용자 마일리지 신청서</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 900px; /* 테이블 포함으로 너비 확장 */
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex; /* 폼과 테이블을 나란히 배치 */
+            flex-wrap: wrap; /* 반응형을 위해 wrap 설정 */
+            gap: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            width: 100%; /* 제목은 전체 너비 사용 */
+        }
+        .form-section, .table-section {
+            flex: 1; /* 가용 공간을 균등하게 분할 */
+            min-width: 300px; /* 최소 너비 설정 */
+        }
+        .form-group {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #eee;
+        }
+        .form-group:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="date"],
+        textarea,
+        select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        input[type="radio"] {
+            margin-right: 5px;
+        }
+        .radio-group label {
+            display: inline-block;
+            margin-right: 20px;
+            font-weight: normal;
+        }
+        .radio-group input[type="radio"] + label {
+            font-weight: normal; /* 라디오 버튼 라벨 글씨 굵기 통일 */
+        }
+        .button-group {
+            margin-top: 20px;
+            text-align: right; /* 버튼 정렬 */
+            width: 100%;
+        }
+        input[type="submit"],
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            margin-left: 5px;
+            transition: background-color 0.3s ease;
+        }
+        input[type="submit"]:hover,
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.secondary {
+            background-color: #7f8c8d;
+        }
+        button.secondary:hover {
+            background-color: #6c7a7e;
+        }
+        button.danger {
+            background-color: #e74c3c;
+        }
+        button.danger:hover {
+            background-color: #c0392b;
+        }
+        button.success {
+            background-color: #27ae60;
+        }
+        button.success:hover {
+            background-color: #229954;
+        }
+        input:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+        .note {
+            font-size: 0.9em;
+            color: #777;
+            margin-top: 5px;
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        th {
+            background-color: #ecf0f1;
+            font-weight: bold;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tbody tr:hover {
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+        tbody tr.selected {
+            background-color: #dbe4f0; /* 선택된 행 배경색 */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>기간별 사용자 마일리지 신청서</h1>
+
+        <div class="form-section">
+            <form id="mileageApplicationForm">
+                <input type="hidden" id="editMileageId" value=""> <!-- 수정 모드일 때 ID 저장 -->
+
+                <div class="form-group">
+                    <label for="companyProjectName">고객사(프로젝트)명</label>
+                    <input type="text" id="companyProjectName" name="companyProjectName" maxlength="100" placeholder="예: (주)알파프로젝트" required>
+                </div>
+
+                <div class="form-group">
+                    <label>구분</label>
+                    <div class="radio-group">
+                        <input type="radio" id="oneWay" name="tripType" value="편도" checked>
+                        <label for="oneWay">편도</label>
+                        <input type="radio" id="roundTrip" name="tripType" value="왕복">
+                        <label for="roundTrip">왕복</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tripDate">일자</label>
+                    <input type="date" id="tripDate" name="tripDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label>출발지</label>
+                    <div class="radio-group">
+                        <input type="radio" id="startOffice" name="startLocationType" value="사무실" checked>
+                        <label for="startOffice">사무실</label>
+                        <input type="radio" id="startCustom" name="startLocationType" value="직접입력">
+                        <label for="startCustom">직접 입력</label>
+                    </div>
+                    <input type="text" id="startLocationAddress" name="startLocationAddress" placeholder="예: 양천로 583 (직접 입력 시)" disabled>
+                    <p class="note">직접 입력 시 도로명 주소 및 건물번호를 입력해주세요.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="destinationAddress">목적지</label>
+                    <input type="text" id="destinationAddress" name="destinationAddress" placeholder="예: 강남대로 123" required>
+                    <p class="note">도로명 주소 및 건물번호를 입력해주세요.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="distance">거리(km)</label>
+                    <input type="text" id="distance" name="distance" value="0" disabled>
+                    <p class="note">네이버 지도 API와 연동하여 자동 처리됩니다.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="mileageAmount">마일리지(원)</label>
+                    <input type="text" id="mileageAmount" name="mileageAmount" value="0" disabled>
+                    <p class="note">네이버 지도 API와 연동하여 자동 처리됩니다.</p>
+                </div>
+
+                <div class="form-group">
+                    <label>교통수단</label>
+                    <div class="radio-group">
+                        <input type="radio" id="publicTransport" name="transportation" value="대중교통" checked>
+                        <label for="publicTransport">대중교통</label>
+                        <input type="radio" id="privateCar" name="transportation" value="개인차량">
+                        <label for="privateCar">개인차량</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="passengers">동승자</label>
+                    <input type="text" id="passengers" name="passengers" placeholder="예: 홍길동, 김철수 (콤마로 구분)" disabled>
+                    <p class="note">교통수단이 '개인차량'인 경우에만 입력 가능합니다.</p>
+                </div>
+
+                <div class="form-group">
+                    <label>방문목적</label>
+                    <div class="radio-group">
+                        <input type="radio" id="purposeRegularCheck" name="visitPurpose" value="정기점검" checked>
+                        <label for="purposeRegularCheck">정기점검</label>
+                        <input type="radio" id="purposeMeeting" name="visitPurpose" value="회의">
+                        <label for="purposeMeeting">회의</label>
+                        <input type="radio" id="purposeTroubleshoot" name="visitPurpose" value="장애처리">
+                        <label for="purposeTroubleshoot">장애처리</label>
+                        <input type="radio" id="purposeOther" name="visitPurpose" value="기타">
+                        <label for="purposeOther">기타</label>
+                    </div>
+                    <input type="text" id="otherPurposeDetail" name="otherPurposeDetail" placeholder="기타 방문목적 입력" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label for="processingResult">처리결과</label>
+                    <input type="text" id="processingResult" name="processingResult" value="대기중" disabled>
+                    <p class="note">관리자가 처리 후 수정하는 항목입니다.</p>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" id="submitButton" class="success">신청하기</button>
+                    <button type="button" id="resetFormButton" class="secondary">초기화</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-section">
+            <h2>신청 내역 조회</h2>
+            <div class="button-group">
+                <button type="button" id="editEntryButton" class="secondary">수정</button>
+                <button type="button" id="deleteEntryButton" class="danger">삭제</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>고객사</th>
+                        <th>구분</th>
+                        <th>일자</th>
+                        <th>출발지</th>
+                        <th>목적지</th>
+                        <th>교통수단</th>
+                        <th>동승자</th>
+                        <th>방문목적</th>
+                        <th>처리결과</th>
+                        <!-- 거리, 마일리지는 테이블에서 제외, 또는 필요시 추가 -->
+                    </tr>
+                </thead>
+                <tbody id="mileageTableBody">
+                    <!-- 데이터가 여기에 로드됩니다 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let mileageData = []; // 마일리지 데이터를 저장할 배열
+        let nextMileageId = 1; // 고유 ID 생성용
+        let selectedRowId = null; // 현재 선택된 테이블 행의 ID
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 초기 데이터 로드 (샘플 데이터)
+            // mileageData.push({ id: nextMileageId++, companyProjectName: '이동 프로젝트', tripType: '편도', tripDate: '2025-11-20', startLocationType: '사무실', startLocationAddress: '', destinationAddress: '서울시 강남구 테헤란로 123', distance: 10, mileageAmount: 1000, transportation: '대중교통', passengers: '', visitPurpose: '회의', otherPurposeDetail: '', processingResult: '완료' });
+            // mileageData.push({ id: nextMileageId++, companyProjectName: '고객사 방문', tripType: '왕복', tripDate: '2025-11-22', startLocationType: '직접입력', startLocationAddress: '양천로 583', destinationAddress: '수원시 팔달구 매산로 55', distance: 50, mileageAmount: 50000, transportation: '개인차량', passengers: '김대리', visitPurpose: '정기점검', otherPurposeDetail: '', processingResult: '대기중' });
+            loadMileageData();
+
+            // === 출발지 라디오 버튼 이벤트 리스너 ===
+            const startLocationTypeRadios = document.querySelectorAll('input[name="startLocationType"]');
+            const startLocationAddressInput = document.getElementById('startLocationAddress');
+            startLocationTypeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === '직접입력') {
+                        startLocationAddressInput.disabled = false;
+                        startLocationAddressInput.focus();
+                    } else {
+                        startLocationAddressInput.disabled = true;
+                        startLocationAddressInput.value = ''; // '사무실' 선택 시 주소 초기화
+                    }
+                });
+            });
+
+            // === 교통수단 라디오 버튼 이벤트 리스너 ===
+            const transportationRadios = document.querySelectorAll('input[name="transportation"]');
+            const passengersInput = document.getElementById('passengers');
+            transportationRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === '개인차량') {
+                        passengersInput.disabled = false;
+                        passengersInput.focus();
+                    } else {
+                        passengersInput.disabled = true;
+                        passengersInput.value = ''; // '대중교통' 선택 시 동승자 초기화
+                    }
+                });
+            });
+
+            // === 방문목적 라디오 버튼 이벤트 리스너 ===
+            const visitPurposeRadios = document.querySelectorAll('input[name="visitPurpose"]');
+            const otherPurposeDetailInput = document.getElementById('otherPurposeDetail');
+            visitPurposeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === '기타') {
+                        otherPurposeDetailInput.disabled = false;
+                        otherPurposeDetailInput.focus();
+                    } else {
+                        otherPurposeDetailInput.disabled = true;
+                        otherPurposeDetailInput.value = ''; // 다른 목적 선택 시 기타 항목 초기화
+                    }
+                });
+            });
+
+            // === 폼 제출 이벤트 리스너 (신청 또는 수정) ===
+            document.getElementById('mileageApplicationForm').addEventListener('submit', function(event) {
+                event.preventDefault(); // 기본 폼 제출 방지
+
+                const form = event.target;
+                const newMileageEntry = {
+                    companyProjectName: form.companyProjectName.value,
+                    tripType: form.tripType.value,
+                    tripDate: form.tripDate.value,
+                    startLocationType: form.startLocationType.value,
+                    startLocationAddress: form.startLocationAddress.disabled ? '' : form.startLocationAddress.value,
+                    destinationAddress: form.destinationAddress.value,
+                    distance: parseFloat(form.distance.value),
+                    mileageAmount: parseFloat(form.mileageAmount.value),
+                    transportation: form.transportation.value,
+                    passengers: form.passengers.disabled ? '' : form.passengers.value,
+                    visitPurpose: form.visitPurpose.value,
+                    otherPurposeDetail: form.otherPurposeDetail.disabled ? '' : form.otherPurposeDetail.value,
+                    processingResult: form.processingResult.value
+                };
+
+                const editId = document.getElementById('editMileageId').value;
+                if (editId) {
+                    // 수정 모드
+                    const index = mileageData.findIndex(item => item.id == editId);
+                    if (index !== -1) {
+                        mileageData[index] = { ...mileageData[index], ...newMileageEntry };
+                        alert("신청 내역이 수정되었습니다.");
+                    }
+                } else {
+                    // 신규 신청 모드
+                    newMileageEntry.id = nextMileageId++;
+                    mileageData.push(newMileageEntry);
+                    alert("신청이 완료되었습니다. (실제 데이터 저장은 추후 구현 예정)");
+                }
+                
+                resetForm(); // 폼 초기화 및 수정 모드 해제
+                loadMileageData(); // 테이블 업데이트
+            });
+
+            // === 초기화 버튼 이벤트 리스너 ===
+            document.getElementById('resetFormButton').addEventListener('click', resetForm);
+
+            // === 수정 버튼 이벤트 리스너 ===
+            document.getElementById('editEntryButton').addEventListener('click', function() {
+                if (selectedRowId === null) {
+                    alert("수정할 항목을 테이블에서 선택해주세요.");
+                    return;
+                }
+                editMileageEntry(selectedRowId);
+            });
+
+            // === 삭제 버튼 이벤트 리스너 ===
+            document.getElementById('deleteEntryButton').addEventListener('click', function() {
+                if (selectedRowId === null) {
+                    alert("삭제할 항목을 테이블에서 선택해주세요.");
+                    return;
+                }
+                if (confirm("선택된 항목을 삭제하시겠습니까?")) {
+                    deleteMileageEntry(selectedRowId);
+                }
+            });
+
+        }); // DOMContentLoaded 끝
+
+        // === 데이터 테이블 로드 및 업데이트 함수 (조회 기능) ===
+        function loadMileageData() {
+            const tableBody = document.getElementById('mileageTableBody');
+            tableBody.innerHTML = ''; // 기존 내용 지우기
+            if (mileageData.length === 0) {
+                const noDataRow = tableBody.insertRow();
+                noDataRow.innerHTML = '<td colspan="9" style="text-align:center;">신청된 마일리지 내역이 없습니다.</td>';
+                return;
+            }
+
+            mileageData.forEach(entry => {
+                const row = tableBody.insertRow();
+                row.dataset.id = entry.id; // 행에 고유 ID 저장
+                row.insertCell().textContent = entry.companyProjectName;
+                row.insertCell().textContent = entry.tripType;
+                row.insertCell().textContent = entry.tripDate;
+                row.insertCell().textContent = entry.startLocationType === '사무실' ? '사무실' : entry.startLocationAddress;
+                row.insertCell().textContent = entry.destinationAddress;
+                row.insertCell().textContent = entry.transportation;
+                row.insertCell().textContent = entry.passengers || '-'; // 동승자 없을 시 '-' 표시
+                row.insertCell().textContent = entry.visitPurpose === '기타' ? `${entry.visitPurpose} (${entry.otherPurposeDetail})` : entry.visitPurpose;
+                row.insertCell().textContent = entry.processingResult;
+
+                row.addEventListener('click', function() {
+                    // 선택된 행 스타일 적용/해제
+                    const currentSelected = document.querySelector('#mileageTableBody .selected');
+                    if (currentSelected) {
+                        currentSelected.classList.remove('selected');
+                    }
+                    this.classList.add('selected');
+                    selectedRowId = this.dataset.id; // 선택된 행의 ID 저장
+                });
+            });
+
+            // 선택된 행이 있었고, 데이터가 새로 로드되었을 때 다시 선택 상태를 유지 (선택된 행이 삭제되지 않았을 경우)
+            if (selectedRowId !== null) {
+                const rowToSelect = document.querySelector(`#mileageTableBody tr[data-id="${selectedRowId}"]`);
+                if (rowToSelect) {
+                    rowToSelect.classList.add('selected');
+                } else {
+                    selectedRowId = null; // 선택된 행이 없어졌으면 초기화
+                }
+            }
+        }
+
+        // === 폼 초기화 함수 ===
+        function resetForm() {
+            document.getElementById('mileageApplicationForm').reset(); // 폼 모든 필드 초기화
+
+            // 동적으로 비활성화되는 필드 초기화 및 다시 비활성화
+            document.getElementById('startLocationAddress').disabled = true;
+            document.getElementById('startLocationAddress').value = '';
+            document.getElementById('passengers').disabled = true;
+            document.getElementById('passengers').value = '';
+            document.getElementById('otherPurposeDetail').disabled = true;
+            document.getElementById('otherPurposeDetail').value = '';
+
+            // 수정 모드 해제
+            document.getElementById('editMileageId').value = '';
+            document.getElementById('submitButton').textContent = '신청하기';
+            document.getElementById('submitButton').classList.remove('secondary'); // 수정모드 버튼 색상 복원
+            document.getElementById('submitButton').classList.add('success');
+
+            // 선택된 테이블 행 하이라이트 해제
+            const currentSelected = document.querySelector('#mileageTableBody .selected');
+            if (currentSelected) {
+                currentSelected.classList.remove('selected');
+            }
+            selectedRowId = null; // 선택된 행 ID 초기화
+        }
+
+        // === 데이터 수정 (폼에 로드) 함수 ===
+        function editMileageEntry(id) {
+            const entry = mileageData.find(item => item.id == id);
+            if (!entry) return;
+
+            const form = document.getElementById('mileageApplicationForm');
+            form.companyProjectName.value = entry.companyProjectName;
+            
+            // 라디오 버튼 선택
+            form.tripType.value = entry.tripType;
+            document.getElementById(entry.tripType === '편도' ? 'oneWay' : 'roundTrip').checked = true;
+
+            form.tripDate.value = entry.tripDate;
+
+            // 출발지 라디오 및 주소 필드 처리
+            form.startLocationType.value = entry.startLocationType;
+            document.getElementById(entry.startLocationType === '사무실' ? 'startOffice' : 'startCustom').checked = true;
+            if (entry.startLocationType === '직접입력') {
+                form.startLocationAddress.disabled = false;
+                form.startLocationAddress.value = entry.startLocationAddress;
+            } else {
+                form.startLocationAddress.disabled = true;
+                form.startLocationAddress.value = '';
+            }
+            
+            form.destinationAddress.value = entry.destinationAddress;
+            form.distance.value = entry.distance; // Disabled 필드도 값 채움
+            form.mileageAmount.value = entry.mileageAmount; // Disabled 필드도 값 채움
+
+            // 교통수단 라디오 및 동승자 필드 처리
+            form.transportation.value = entry.transportation;
+            document.getElementById(entry.transportation === '대중교통' ? 'publicTransport' : 'privateCar').checked = true;
+            if (entry.transportation === '개인차량') {
+                form.passengers.disabled = false;
+                form.passengers.value = entry.passengers;
+            } else {
+                form.passengers.disabled = true;
+                form.passengers.value = '';
+            }
+
+            // 방문목적 라디오 및 기타 필드 처리
+            form.visitPurpose.value = entry.visitPurpose;
+            document.getElementById(`purpose${entry.visitPurpose === '정기점검' ? 'RegularCheck' : entry.visitPurpose === '회의' ? 'Meeting' : entry.visitPurpose === '장애처리' ? 'Troubleshoot' : 'Other'}`).checked = true;
+            if (entry.visitPurpose === '기타') {
+                form.otherPurposeDetail.disabled = false;
+                form.otherPurposeDetail.value = entry.otherPurposeDetail;
+            } else {
+                form.otherPurposeDetail.disabled = true;
+                form.otherPurposeDetail.value = '';
+            }
+            
+            form.processingResult.value = entry.processingResult; // Disabled 필드도 값 채움
+
+            // 수정 모드임을 표시하고 버튼 텍스트 변경
+            document.getElementById('editMileageId').value = id;
+            document.getElementById('submitButton').textContent = '저장하기';
+            document.getElementById('submitButton').classList.remove('success');
+            document.getElementById('submitButton').classList.add('secondary');
+
+            // 폼 상단으로 스크롤하여 사용자 편의 증진
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // === 데이터 삭제 함수 ===
+        function deleteMileageEntry(id) {
+            mileageData = mileageData.filter(item => item.id != id);
+            alert("선택된 신청 내역이 삭제되었습니다.");
+            resetForm(); // 폼 초기화 및 수정 모드 해제
+            loadMileageData(); // 테이블 업데이트
+        }
+    </script>
+</body>
+</html>
