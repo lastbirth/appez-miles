@@ -161,6 +161,11 @@
             font-weight: bold;
         }
     </style>
+    <!-- 다음 우편번호 서비스 스크립트 로드 -->
+    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <!-- 다음 지도 API (Geocoder 포함) 스크립트 로드 -->
+    <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=#YOUR_KAKAO_APP_KEY&libraries=services"></script>
+    <!-- 카카오 API 키를 반드시 본인의 것으로 교체하세요! (예: appkey=abcdef1234567890) -->
 </head>
 <body>
     <div class="container">
@@ -199,7 +204,7 @@
                         <label for="startCustom">직접 입력</label>
                     </div>
                     <div class="address-input-group">
-                        <input type="text" id="startLocationAddress" name="startLocationAddress" placeholder="사무실 주소 또는 검색된 주소" readonly>
+                        <input type="text" id="startLocationAddress" name="startLocationAddress" placeholder="사무실 주소 또는 검색된 주소" readonly required>
                         <button type="button" id="searchStartAddrBtn" class="secondary" disabled>주소 검색</button>
                     </div>
                     <input type="hidden" id="startLocationLat" name="startLocationLat">
@@ -305,15 +310,21 @@
         let mileageData = []; // 마일리지 데이터를 저장할 배열
         let nextMileageId = 1; // 고유 ID 생성용
         let selectedRowId = null; // 현재 선택된 테이블 행의 ID
-        let currentTargetAddressField = null; // 현재 주소 팝업을 띄운 대상 필드
+        let currentTargetAddressField = null; // 현재 주소 팝업을 띄운 대상 필드 ('start' 또는 'destination')
 
-        // 주소 팝업 API 승인키 (반드시 본인의 승인키로 교체해주세요!)
-        const JUSO_API_CONF_KEY = 'U01TX0FVVEgyMDIyMDkyMjEwMDMxMjExMzEyOTQ='; // 실제 발급받은 키로 대체
-        // 실제 운영에서는 returnUrl을 처리할 서버 측 페이지(jusoPopup.jsp 등)의 URL이 필요합니다.
-        // 현재는 클라이언트 단독 시뮬레이션을 위해 "sampleJusoPopup.html"을 사용합니다.
-        const JUSO_API_RETURN_URL = window.location.href.substring(0, window.location.href.lastIndexOf('/')) + '/sampleJusoPopup.html';
+        // Daum Maps API Geocoder 객체 생성
+        let geocoder;
+        
+        // 가상의 사무실 주소 및 좌표 (본인의 실제 사무실 정보로 변경하세요)
+        const OFFICE_ADDRESS = '서울시 양천구 목동동로 233-1 현대드림타워';
+        const OFFICE_LAT = '37.5255'; // 가상 위도
+        const OFFICE_LON = '126.8741'; // 가상 경도
+
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Geocoder 객체 초기화 (Kakao Maps API 스크립트 로드 후)
+            geocoder = new daum.maps.services.Geocoder();
+
             loadMileageData(); // 초기 데이터 로드 (빈 테이블 또는 샘플 데이터)
 
             // === 출발지 라디오 버튼 이벤트 리스너 ===
@@ -332,25 +343,24 @@
                         startLocationLonInput.value = '';
                     } else { // 사무실 선택 시
                         searchStartAddrBtn.disabled = true; // 주소 검색 버튼 비활성화
-                        // 가상 사무실 주소 및 좌표 설정
-                        startLocationAddressInput.value = '서울시 양천구 목동동로 233-1 (현대드림타워)';
-                        startLocationLatInput.value = '37.5255'; // 가상 위도
-                        startLocationLonInput.value = '126.8741'; // 가상 경도
+                        startLocationAddressInput.value = OFFICE_ADDRESS;
+                        startLocationLatInput.value = OFFICE_LAT;
+                        startLocationLonInput.value = OFFICE_LON;
                     }
                 });
             });
-            // 초기 로드 시 '사무실' 선택되어 있으므로 한 번 실행
+            // 초기 로드 시 '사무실' 선택되어 있으므로 한 번 실행하여 기본값 설정
             document.querySelector('input[name="startLocationType"]:checked').dispatchEvent(new Event('change'));
 
             // === 주소 검색 버튼 이벤트 리스너 ===
             document.getElementById('searchStartAddrBtn').addEventListener('click', function() {
                 currentTargetAddressField = 'start'; // 현재 검색 대상이 출발지임을 표시
-                openJusoPopup();
+                openDaumPostcode();
             });
 
             document.getElementById('searchDestAddrBtn').addEventListener('click', function() {
                 currentTargetAddressField = 'destination'; // 현재 검색 대상이 목적지임을 표시
-                openJusoPopup();
+                openDaumPostcode();
             });
 
             // === 교통수단 라디오 버튼 이벤트 리스너 ===
@@ -408,13 +418,13 @@
                     processingResult: form.processingResult.value
                 };
 
-                // 주소 입력 필수 검증
-                if (!newMileageEntry.startLocationAddress) {
-                    alert("출발지 주소를 검색해주세요.");
+                // 주소 및 좌표 입력 필수 검증
+                if (!newMileageEntry.startLocationAddress || !newMileageEntry.startLocationLat || !newMileageEntry.startLocationLon) {
+                    alert("출발지 주소를 검색하고 좌표를 확인해주세요.");
                     return;
                 }
-                if (!newMileageEntry.destinationAddress) {
-                    alert("목적지 주소를 검색해주세요.");
+                if (!newMileageEntry.destinationAddress || !newMileageEntry.destinationLat || !newMileageEntry.destinationLon) {
+                    alert("목적지 주소를 검색하고 좌표를 확인해주세요.");
                     return;
                 }
 
@@ -458,42 +468,56 @@
                 }
             });
 
-            // === 주소 팝업으로부터 데이터를 수신하는 리스너 ===
-            window.addEventListener('message', function(event) {
-                // 특정 도메인으로부터만 메시지를 수신하도록 `event.origin` 검증을 추가하는 것이 좋습니다.
-                // 예: if (event.origin !== 'http://your-domain.com') return;
-
-                const data = event.data;
-                if (data && data.jusoApiResult) {
-                    const addrInfo = data.jusoApiResult;
-                    if (currentTargetAddressField === 'start') {
-                        document.getElementById('startLocationAddress').value = addrInfo.roadFullAddr;
-                        document.getElementById('startLocationLat').value = addrInfo.entY; // 위도
-                        document.getElementById('startLocationLon').value = addrInfo.entX; // 경도
-                        // '직접입력' 라디오 버튼이 선택되도록 (혹시 모를 상황 대비)
-                        document.getElementById('startCustom').checked = true;
-                        document.getElementById('searchStartAddrBtn').disabled = false;
-                    } else if (currentTargetAddressField === 'destination') {
-                        document.getElementById('destinationAddress').value = addrInfo.roadFullAddr;
-                        document.getElementById('destinationLat').value = addrInfo.entY; // 위도
-                        document.getElementById('destinationLon').value = addrInfo.entX; // 경도
-                    }
-                    currentTargetAddressField = null; // 검색 대상 초기화
-                }
-            }, false);
-
         }); // DOMContentLoaded 끝
 
-        // === 주소 팝업 오픈 함수 ===
-        function openJusoPopup() {
-            // 이 예제는 단일 HTML 파일에서 클라이언트 단독으로 동작하도록 sampleJusoPopup.html을 사용합니다.
-            // 실제 구현 시에는 주소정보시스템 개발자센터에서 제공하는 jusoPopup.jsp 등의 서버 페이지와 연동해야 합니다.
-            // 아래의 window.open URL은 Juso API 개발 가이드에 따라 구성됩니다.
-            // confmKey와 returnUrl은 필수 파라미터이며, useDetailAddr='Y'는 상세 주소를 제공하는 설정입니다.
-            const url = `https://business.juso.go.kr/addrlink/addrLinkUrl.do?confmKey=${JUSO_API_CONF_KEY}&returnUrl=${JUSO_API_RETURN_URL}&resultType=4&useDetailAddr=Y`;
-            window.open(url, "팝업 주소검색", "width=700,height=500,scrollbars=yes,resizable=yes");
-        }
 
+        // === 다음 우편번호 서비스 팝업 오픈 함수 ===
+        function openDaumPostcode() {
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    // 주소-좌표 변환 객체
+                    if (!geocoder) {
+                         alert("카카오 지도 API가 로드되지 않았습니다. 개발자 콘솔을 확인해주세요.");
+                         return;
+                    }
+
+                    var addr = data.roadAddress; // 기본적으로 도로명 주소 사용
+                    if (!addr) { // 도로명 주소가 없을 경우 지번 주소 사용
+                        addr = data.jibunAddress;
+                    }
+
+                    // 주소 정보를 해당 필드에 넣는다.
+                    if (currentTargetAddressField === 'start') {
+                        document.getElementById('startLocationAddress').value = addr;
+                    } else if (currentTargetAddressField === 'destination') {
+                        document.getElementById('destinationAddress').value = addr;
+                    }
+
+                    // 주소로 상세 정보를 검색하여 좌표를 가져온다.
+                    geocoder.addressSearch(addr, function(results, status) {
+                        if (status === daum.maps.services.Status.OK) {
+                            var result = results[0]; // 첫 번째 결과의 값을 활용
+                            if (currentTargetAddressField === 'start') {
+                                document.getElementById('startLocationLat').value = result.y;
+                                document.getElementById('startLocationLon').value = result.x;
+                            } else if (currentTargetAddressField === 'destination') {
+                                document.getElementById('destinationLat').value = result.y;
+                                document.getElementById('destinationLon').value = result.x;
+                            }
+                        } else {
+                            alert('선택된 주소의 좌표를 찾을 수 없습니다.');
+                            if (currentTargetAddressField === 'start') {
+                                document.getElementById('startLocationLat').value = '';
+                                document.getElementById('startLocationLon').value = '';
+                            } else if (currentTargetAddressField === 'destination') {
+                                document.getElementById('destinationLat').value = '';
+                                document.getElementById('destinationLon').value = '';
+                            }
+                        }
+                    });
+                }
+            }).open();
+        }
 
         // === 데이터 테이블 로드 및 업데이트 함수 (조회 기능) ===
         function loadMileageData() {
@@ -542,6 +566,7 @@
         function resetForm() {
             document.getElementById('mileageApplicationForm').reset();
 
+            // 주소 필드 초기화
             document.getElementById('startLocationAddress').value = '';
             document.getElementById('startLocationLat').value = '';
             document.getElementById('startLocationLon').value = '';
@@ -555,7 +580,7 @@
             document.getElementById('purposeRegularCheck').checked = true;
             document.getElementById('startOffice').checked = true;
             document.getElementById('startOffice').dispatchEvent(new Event('change')); // 사무실 주소로 초기화
-
+            
             document.getElementById('passengers').disabled = true;
             document.getElementById('passengers').value = '';
             document.getElementById('otherPurposeDetail').disabled = true;
@@ -585,7 +610,7 @@
 
             form.tripDate.value = entry.tripDate;
 
-            // 출발지 로딩
+            // 출발지 로딩 (사무실/직접입력 라디오 상태와 주소/좌표 복원)
             document.getElementById(entry.startLocationType === '사무실' ? 'startOffice' : 'startCustom').checked = true;
             if (entry.startLocationType === '직접입력') {
                 document.getElementById('searchStartAddrBtn').disabled = false;
@@ -594,9 +619,9 @@
                 form.startLocationLon.value = entry.startLocationLon;
             } else { // 사무실
                 document.getElementById('searchStartAddrBtn').disabled = true;
-                form.startLocationAddress.value = '서울시 양천구 목동동로 233-1 (현대드림타워)'; // 가상 사무실 주소
-                form.startLocationLat.value = '37.5255'; // 가상 위도
-                form.startLocationLon.value = '126.8741'; // 가상 경도
+                form.startLocationAddress.value = OFFICE_ADDRESS;
+                form.startLocationLat.value = OFFICE_LAT;
+                form.startLocationLon.value = OFFICE_LON;
             }
             
             // 목적지 로딩
