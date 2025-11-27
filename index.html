@@ -70,6 +70,20 @@
         .radio-group input[type="radio"] + label {
             font-weight: normal; /* 라디오 버튼 라벨 글씨 굵기 통일 */
         }
+        .address-input-group {
+            display: flex;
+            gap: 5px;
+        }
+        .address-input-group input[type="text"] {
+            flex-grow: 1;
+        }
+        .address-input-group button {
+            width: auto;
+            white-space: nowrap;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            margin-top: 0;
+        }
         .button-group {
             margin-top: 20px;
             text-align: right; /* 버튼 정렬 */
@@ -184,14 +198,24 @@
                         <input type="radio" id="startCustom" name="startLocationType" value="직접입력">
                         <label for="startCustom">직접 입력</label>
                     </div>
-                    <input type="text" id="startLocationAddress" name="startLocationAddress" placeholder="예: 양천로 583 (직접 입력 시)" disabled>
-                    <p class="note">직접 입력 시 도로명 주소 및 건물번호를 입력해주세요.</p>
+                    <div class="address-input-group">
+                        <input type="text" id="startLocationAddress" name="startLocationAddress" placeholder="사무실 주소 또는 검색된 주소" readonly>
+                        <button type="button" id="searchStartAddrBtn" class="secondary" disabled>주소 검색</button>
+                    </div>
+                    <input type="hidden" id="startLocationLat" name="startLocationLat">
+                    <input type="hidden" id="startLocationLon" name="startLocationLon">
+                    <p class="note">주소 검색 버튼을 눌러 정확한 주소를 입력해주세요.</p>
                 </div>
 
                 <div class="form-group">
                     <label for="destinationAddress">목적지</label>
-                    <input type="text" id="destinationAddress" name="destinationAddress" placeholder="예: 강남대로 123" required>
-                    <p class="note">도로명 주소 및 건물번호를 입력해주세요.</p>
+                    <div class="address-input-group">
+                        <input type="text" id="destinationAddress" name="destinationAddress" placeholder="목적지 주소" readonly required>
+                        <button type="button" id="searchDestAddrBtn" class="secondary">주소 검색</button>
+                    </div>
+                    <input type="hidden" id="destinationLat" name="destinationLat">
+                    <input type="hidden" id="destinationLon" name="destinationLon">
+                    <p class="note">주소 검색 버튼을 눌러 정확한 주소를 입력해주세요.</p>
                 </div>
 
                 <div class="form-group">
@@ -268,7 +292,6 @@
                         <th>동승자</th>
                         <th>방문목적</th>
                         <th>처리결과</th>
-                        <!-- 거리, 마일리지는 테이블에서 제외, 또는 필요시 추가 -->
                     </tr>
                 </thead>
                 <tbody id="mileageTableBody">
@@ -282,26 +305,52 @@
         let mileageData = []; // 마일리지 데이터를 저장할 배열
         let nextMileageId = 1; // 고유 ID 생성용
         let selectedRowId = null; // 현재 선택된 테이블 행의 ID
+        let currentTargetAddressField = null; // 현재 주소 팝업을 띄운 대상 필드
+
+        // 주소 팝업 API 승인키 (반드시 본인의 승인키로 교체해주세요!)
+        const JUSO_API_CONF_KEY = 'U01TX0FVVEgyMDIyMDkyMjEwMDMxMjExMzEyOTQ='; // 실제 발급받은 키로 대체
+        // 실제 운영에서는 returnUrl을 처리할 서버 측 페이지(jusoPopup.jsp 등)의 URL이 필요합니다.
+        // 현재는 클라이언트 단독 시뮬레이션을 위해 "sampleJusoPopup.html"을 사용합니다.
+        const JUSO_API_RETURN_URL = window.location.href.substring(0, window.location.href.lastIndexOf('/')) + '/sampleJusoPopup.html';
 
         document.addEventListener('DOMContentLoaded', function() {
-            // 초기 데이터 로드 (샘플 데이터)
-            // mileageData.push({ id: nextMileageId++, companyProjectName: '이동 프로젝트', tripType: '편도', tripDate: '2025-11-20', startLocationType: '사무실', startLocationAddress: '', destinationAddress: '서울시 강남구 테헤란로 123', distance: 10, mileageAmount: 1000, transportation: '대중교통', passengers: '', visitPurpose: '회의', otherPurposeDetail: '', processingResult: '완료' });
-            // mileageData.push({ id: nextMileageId++, companyProjectName: '고객사 방문', tripType: '왕복', tripDate: '2025-11-22', startLocationType: '직접입력', startLocationAddress: '양천로 583', destinationAddress: '수원시 팔달구 매산로 55', distance: 50, mileageAmount: 50000, transportation: '개인차량', passengers: '김대리', visitPurpose: '정기점검', otherPurposeDetail: '', processingResult: '대기중' });
-            loadMileageData();
+            loadMileageData(); // 초기 데이터 로드 (빈 테이블 또는 샘플 데이터)
 
             // === 출발지 라디오 버튼 이벤트 리스너 ===
             const startLocationTypeRadios = document.querySelectorAll('input[name="startLocationType"]');
             const startLocationAddressInput = document.getElementById('startLocationAddress');
+            const searchStartAddrBtn = document.getElementById('searchStartAddrBtn');
+            const startLocationLatInput = document.getElementById('startLocationLat');
+            const startLocationLonInput = document.getElementById('startLocationLon');
+
             startLocationTypeRadios.forEach(radio => {
                 radio.addEventListener('change', function() {
                     if (this.value === '직접입력') {
-                        startLocationAddressInput.disabled = false;
-                        startLocationAddressInput.focus();
-                    } else {
-                        startLocationAddressInput.disabled = true;
-                        startLocationAddressInput.value = ''; // '사무실' 선택 시 주소 초기화
+                        searchStartAddrBtn.disabled = false; // 주소 검색 버튼 활성화
+                        startLocationAddressInput.value = ''; // 기존 주소 초기화
+                        startLocationLatInput.value = '';
+                        startLocationLonInput.value = '';
+                    } else { // 사무실 선택 시
+                        searchStartAddrBtn.disabled = true; // 주소 검색 버튼 비활성화
+                        // 가상 사무실 주소 및 좌표 설정
+                        startLocationAddressInput.value = '서울시 양천구 목동동로 233-1 (현대드림타워)';
+                        startLocationLatInput.value = '37.5255'; // 가상 위도
+                        startLocationLonInput.value = '126.8741'; // 가상 경도
                     }
                 });
+            });
+            // 초기 로드 시 '사무실' 선택되어 있으므로 한 번 실행
+            document.querySelector('input[name="startLocationType"]:checked').dispatchEvent(new Event('change'));
+
+            // === 주소 검색 버튼 이벤트 리스너 ===
+            document.getElementById('searchStartAddrBtn').addEventListener('click', function() {
+                currentTargetAddressField = 'start'; // 현재 검색 대상이 출발지임을 표시
+                openJusoPopup();
+            });
+
+            document.getElementById('searchDestAddrBtn').addEventListener('click', function() {
+                currentTargetAddressField = 'destination'; // 현재 검색 대상이 목적지임을 표시
+                openJusoPopup();
             });
 
             // === 교통수단 라디오 버튼 이벤트 리스너 ===
@@ -314,7 +363,7 @@
                         passengersInput.focus();
                     } else {
                         passengersInput.disabled = true;
-                        passengersInput.value = ''; // '대중교통' 선택 시 동승자 초기화
+                        passengersInput.value = '';
                     }
                 });
             });
@@ -329,14 +378,14 @@
                         otherPurposeDetailInput.focus();
                     } else {
                         otherPurposeDetailInput.disabled = true;
-                        otherPurposeDetailInput.value = ''; // 다른 목적 선택 시 기타 항목 초기화
+                        otherPurposeDetailInput.value = '';
                     }
                 });
             });
 
             // === 폼 제출 이벤트 리스너 (신청 또는 수정) ===
             document.getElementById('mileageApplicationForm').addEventListener('submit', function(event) {
-                event.preventDefault(); // 기본 폼 제출 방지
+                event.preventDefault();
 
                 const form = event.target;
                 const newMileageEntry = {
@@ -344,8 +393,12 @@
                     tripType: form.tripType.value,
                     tripDate: form.tripDate.value,
                     startLocationType: form.startLocationType.value,
-                    startLocationAddress: form.startLocationAddress.disabled ? '' : form.startLocationAddress.value,
+                    startLocationAddress: form.startLocationAddress.value,
+                    startLocationLat: form.startLocationLat.value,
+                    startLocationLon: form.startLocationLon.value,
                     destinationAddress: form.destinationAddress.value,
+                    destinationLat: form.destinationLat.value,
+                    destinationLon: form.destinationLon.value,
                     distance: parseFloat(form.distance.value),
                     mileageAmount: parseFloat(form.mileageAmount.value),
                     transportation: form.transportation.value,
@@ -355,23 +408,31 @@
                     processingResult: form.processingResult.value
                 };
 
+                // 주소 입력 필수 검증
+                if (!newMileageEntry.startLocationAddress) {
+                    alert("출발지 주소를 검색해주세요.");
+                    return;
+                }
+                if (!newMileageEntry.destinationAddress) {
+                    alert("목적지 주소를 검색해주세요.");
+                    return;
+                }
+
                 const editId = document.getElementById('editMileageId').value;
                 if (editId) {
-                    // 수정 모드
                     const index = mileageData.findIndex(item => item.id == editId);
                     if (index !== -1) {
                         mileageData[index] = { ...mileageData[index], ...newMileageEntry };
                         alert("신청 내역이 수정되었습니다.");
                     }
                 } else {
-                    // 신규 신청 모드
                     newMileageEntry.id = nextMileageId++;
                     mileageData.push(newMileageEntry);
                     alert("신청이 완료되었습니다. (실제 데이터 저장은 추후 구현 예정)");
                 }
                 
-                resetForm(); // 폼 초기화 및 수정 모드 해제
-                loadMileageData(); // 테이블 업데이트
+                resetForm();
+                loadMileageData();
             });
 
             // === 초기화 버튼 이벤트 리스너 ===
@@ -397,12 +458,47 @@
                 }
             });
 
+            // === 주소 팝업으로부터 데이터를 수신하는 리스너 ===
+            window.addEventListener('message', function(event) {
+                // 특정 도메인으로부터만 메시지를 수신하도록 `event.origin` 검증을 추가하는 것이 좋습니다.
+                // 예: if (event.origin !== 'http://your-domain.com') return;
+
+                const data = event.data;
+                if (data && data.jusoApiResult) {
+                    const addrInfo = data.jusoApiResult;
+                    if (currentTargetAddressField === 'start') {
+                        document.getElementById('startLocationAddress').value = addrInfo.roadFullAddr;
+                        document.getElementById('startLocationLat').value = addrInfo.entY; // 위도
+                        document.getElementById('startLocationLon').value = addrInfo.entX; // 경도
+                        // '직접입력' 라디오 버튼이 선택되도록 (혹시 모를 상황 대비)
+                        document.getElementById('startCustom').checked = true;
+                        document.getElementById('searchStartAddrBtn').disabled = false;
+                    } else if (currentTargetAddressField === 'destination') {
+                        document.getElementById('destinationAddress').value = addrInfo.roadFullAddr;
+                        document.getElementById('destinationLat').value = addrInfo.entY; // 위도
+                        document.getElementById('destinationLon').value = addrInfo.entX; // 경도
+                    }
+                    currentTargetAddressField = null; // 검색 대상 초기화
+                }
+            }, false);
+
         }); // DOMContentLoaded 끝
+
+        // === 주소 팝업 오픈 함수 ===
+        function openJusoPopup() {
+            // 이 예제는 단일 HTML 파일에서 클라이언트 단독으로 동작하도록 sampleJusoPopup.html을 사용합니다.
+            // 실제 구현 시에는 주소정보시스템 개발자센터에서 제공하는 jusoPopup.jsp 등의 서버 페이지와 연동해야 합니다.
+            // 아래의 window.open URL은 Juso API 개발 가이드에 따라 구성됩니다.
+            // confmKey와 returnUrl은 필수 파라미터이며, useDetailAddr='Y'는 상세 주소를 제공하는 설정입니다.
+            const url = `https://business.juso.go.kr/addrlink/addrLinkUrl.do?confmKey=${JUSO_API_CONF_KEY}&returnUrl=${JUSO_API_RETURN_URL}&resultType=4&useDetailAddr=Y`;
+            window.open(url, "팝업 주소검색", "width=700,height=500,scrollbars=yes,resizable=yes");
+        }
+
 
         // === 데이터 테이블 로드 및 업데이트 함수 (조회 기능) ===
         function loadMileageData() {
             const tableBody = document.getElementById('mileageTableBody');
-            tableBody.innerHTML = ''; // 기존 내용 지우기
+            tableBody.innerHTML = '';
             if (mileageData.length === 0) {
                 const noDataRow = tableBody.insertRow();
                 noDataRow.innerHTML = '<td colspan="9" style="text-align:center;">신청된 마일리지 내역이 없습니다.</td>';
@@ -411,63 +507,70 @@
 
             mileageData.forEach(entry => {
                 const row = tableBody.insertRow();
-                row.dataset.id = entry.id; // 행에 고유 ID 저장
+                row.dataset.id = entry.id;
                 row.insertCell().textContent = entry.companyProjectName;
                 row.insertCell().textContent = entry.tripType;
                 row.insertCell().textContent = entry.tripDate;
                 row.insertCell().textContent = entry.startLocationType === '사무실' ? '사무실' : entry.startLocationAddress;
                 row.insertCell().textContent = entry.destinationAddress;
                 row.insertCell().textContent = entry.transportation;
-                row.insertCell().textContent = entry.passengers || '-'; // 동승자 없을 시 '-' 표시
+                row.insertCell().textContent = entry.passengers || '-';
                 row.insertCell().textContent = entry.visitPurpose === '기타' ? `${entry.visitPurpose} (${entry.otherPurposeDetail})` : entry.visitPurpose;
                 row.insertCell().textContent = entry.processingResult;
 
                 row.addEventListener('click', function() {
-                    // 선택된 행 스타일 적용/해제
                     const currentSelected = document.querySelector('#mileageTableBody .selected');
                     if (currentSelected) {
                         currentSelected.classList.remove('selected');
                     }
                     this.classList.add('selected');
-                    selectedRowId = this.dataset.id; // 선택된 행의 ID 저장
+                    selectedRowId = this.dataset.id;
                 });
             });
 
-            // 선택된 행이 있었고, 데이터가 새로 로드되었을 때 다시 선택 상태를 유지 (선택된 행이 삭제되지 않았을 경우)
             if (selectedRowId !== null) {
                 const rowToSelect = document.querySelector(`#mileageTableBody tr[data-id="${selectedRowId}"]`);
                 if (rowToSelect) {
                     rowToSelect.classList.add('selected');
                 } else {
-                    selectedRowId = null; // 선택된 행이 없어졌으면 초기화
+                    selectedRowId = null;
                 }
             }
         }
 
         // === 폼 초기화 함수 ===
         function resetForm() {
-            document.getElementById('mileageApplicationForm').reset(); // 폼 모든 필드 초기화
+            document.getElementById('mileageApplicationForm').reset();
 
-            // 동적으로 비활성화되는 필드 초기화 및 다시 비활성화
-            document.getElementById('startLocationAddress').disabled = true;
             document.getElementById('startLocationAddress').value = '';
+            document.getElementById('startLocationLat').value = '';
+            document.getElementById('startLocationLon').value = '';
+            document.getElementById('destinationAddress').value = '';
+            document.getElementById('destinationLat').value = '';
+            document.getElementById('destinationLon').value = '';
+
+            // 라디오 버튼 기본값으로 돌리고 이벤트 강제 발생
+            document.getElementById('oneWay').checked = true;
+            document.getElementById('publicTransport').checked = true;
+            document.getElementById('purposeRegularCheck').checked = true;
+            document.getElementById('startOffice').checked = true;
+            document.getElementById('startOffice').dispatchEvent(new Event('change')); // 사무실 주소로 초기화
+
             document.getElementById('passengers').disabled = true;
             document.getElementById('passengers').value = '';
             document.getElementById('otherPurposeDetail').disabled = true;
             document.getElementById('otherPurposeDetail').value = '';
 
-            // 수정 모드 해제
             document.getElementById('editMileageId').value = '';
             document.getElementById('submitButton').textContent = '신청하기';
-            document.getElementById('submitButton').classList.remove('secondary'); // 수정모드 버튼 색상 복원
+            document.getElementById('submitButton').classList.remove('secondary');
             document.getElementById('submitButton').classList.add('success');
 
-            // 선택된 테이블 행 하이라이트 해제
             const currentSelected = document.querySelector('#mileageTableBody .selected');
             if (currentSelected) {
                 currentSelected.classList.remove('selected');
             }
-            selectedRowId = null; // 선택된 행 ID 초기화
+            selectedRowId = null;
         }
 
         // === 데이터 수정 (폼에 로드) 함수 ===
@@ -478,29 +581,32 @@
             const form = document.getElementById('mileageApplicationForm');
             form.companyProjectName.value = entry.companyProjectName;
             
-            // 라디오 버튼 선택
-            form.tripType.value = entry.tripType;
             document.getElementById(entry.tripType === '편도' ? 'oneWay' : 'roundTrip').checked = true;
 
             form.tripDate.value = entry.tripDate;
 
-            // 출발지 라디오 및 주소 필드 처리
-            form.startLocationType.value = entry.startLocationType;
+            // 출발지 로딩
             document.getElementById(entry.startLocationType === '사무실' ? 'startOffice' : 'startCustom').checked = true;
             if (entry.startLocationType === '직접입력') {
-                form.startLocationAddress.disabled = false;
+                document.getElementById('searchStartAddrBtn').disabled = false;
                 form.startLocationAddress.value = entry.startLocationAddress;
-            } else {
-                form.startLocationAddress.disabled = true;
-                form.startLocationAddress.value = '';
+                form.startLocationLat.value = entry.startLocationLat;
+                form.startLocationLon.value = entry.startLocationLon;
+            } else { // 사무실
+                document.getElementById('searchStartAddrBtn').disabled = true;
+                form.startLocationAddress.value = '서울시 양천구 목동동로 233-1 (현대드림타워)'; // 가상 사무실 주소
+                form.startLocationLat.value = '37.5255'; // 가상 위도
+                form.startLocationLon.value = '126.8741'; // 가상 경도
             }
             
+            // 목적지 로딩
             form.destinationAddress.value = entry.destinationAddress;
-            form.distance.value = entry.distance; // Disabled 필드도 값 채움
-            form.mileageAmount.value = entry.mileageAmount; // Disabled 필드도 값 채움
+            form.destinationLat.value = entry.destinationLat;
+            form.destinationLon.value = entry.destinationLon;
 
-            // 교통수단 라디오 및 동승자 필드 처리
-            form.transportation.value = entry.transportation;
+            form.distance.value = entry.distance;
+            form.mileageAmount.value = entry.mileageAmount;
+
             document.getElementById(entry.transportation === '대중교통' ? 'publicTransport' : 'privateCar').checked = true;
             if (entry.transportation === '개인차량') {
                 form.passengers.disabled = false;
@@ -510,9 +616,8 @@
                 form.passengers.value = '';
             }
 
-            // 방문목적 라디오 및 기타 필드 처리
-            form.visitPurpose.value = entry.visitPurpose;
-            document.getElementById(`purpose${entry.visitPurpose === '정기점검' ? 'RegularCheck' : entry.visitPurpose === '회의' ? 'Meeting' : entry.visitPurpose === '장애처리' ? 'Troubleshoot' : 'Other'}`).checked = true;
+            const purposeIdMap = { '정기점검': 'purposeRegularCheck', '회의': 'purposeMeeting', '장애처리': 'purposeTroubleshoot', '기타': 'purposeOther' };
+            document.getElementById(purposeIdMap[entry.visitPurpose]).checked = true;
             if (entry.visitPurpose === '기타') {
                 form.otherPurposeDetail.disabled = false;
                 form.otherPurposeDetail.value = entry.otherPurposeDetail;
@@ -521,15 +626,13 @@
                 form.otherPurposeDetail.value = '';
             }
             
-            form.processingResult.value = entry.processingResult; // Disabled 필드도 값 채움
+            form.processingResult.value = entry.processingResult;
 
-            // 수정 모드임을 표시하고 버튼 텍스트 변경
             document.getElementById('editMileageId').value = id;
             document.getElementById('submitButton').textContent = '저장하기';
             document.getElementById('submitButton').classList.remove('success');
             document.getElementById('submitButton').classList.add('secondary');
 
-            // 폼 상단으로 스크롤하여 사용자 편의 증진
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -537,8 +640,8 @@
         function deleteMileageEntry(id) {
             mileageData = mileageData.filter(item => item.id != id);
             alert("선택된 신청 내역이 삭제되었습니다.");
-            resetForm(); // 폼 초기화 및 수정 모드 해제
-            loadMileageData(); // 테이블 업데이트
+            resetForm();
+            loadMileageData();
         }
     </script>
 </body>
