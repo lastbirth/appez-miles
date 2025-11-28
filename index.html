@@ -48,6 +48,15 @@
             font-weight: bold;
             color: #555;
         }
+        /* --- 변경된 부분 시작 (필수 항목 강조) --- */
+        .required-label::after {
+            content: ' *';
+            color: #e74c3c; /* 빨간색 별표 */
+            font-weight: bold;
+            margin-left: 3px;
+        }
+        /* --- 변경된 부분 끝 --- */
+
         input[type="text"],
         input[type="date"],
         textarea,
@@ -178,27 +187,27 @@
                 <input type="hidden" id="editMileageId" value=""> <!-- 수정 모드일 때 ID 저장 -->
 
                 <div class="form-group">
-                    <label for="companyProjectName">고객사(프로젝트)명</label>
+                    <label for="companyProjectName" class="required-label">고객사(프로젝트)명</label>
                     <input type="text" id="companyProjectName" name="companyProjectName" maxlength="100" placeholder="예: (주)알파프로젝트" required>
                 </div>
 
                 <div class="form-group">
-                    <label>구분</label>
+                    <label class="required-label">구분</label>
                     <div class="radio-group">
-                        <input type="radio" id="oneWay" name="tripType" value="편도" checked>
+                        <input type="radio" id="oneWay" name="tripType" value="편도">
                         <label for="oneWay">편도</label>
-                        <input type="radio" id="roundTrip" name="tripType" value="왕복">
+                        <input type="radio" id="roundTrip" name="tripType" value="왕복" checked required> <!-- 왕복을 기본 선택 & 필수 항목으로 추가 -->
                         <label for="roundTrip">왕복</label>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="tripDate">일자</label>
+                    <label for="tripDate" class="required-label">일자</label>
                     <input type="date" id="tripDate" name="tripDate" required>
                 </div>
 
                 <div class="form-group">
-                    <label>출발지</label>
+                    <label class="required-label">출발지</label>
                     <div class="radio-group">
                         <input type="radio" id="startOffice" name="startLocationType" value="사무실" checked>
                         <label for="startOffice">사무실</label>
@@ -214,7 +223,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="destinationAddress">목적지</label>
+                    <label for="destinationAddress" class="required-label">목적지</label>
                     <div class="address-input-group">
                         <input type="text" id="destinationAddress" name="destinationAddress" placeholder="목적지 주소" readonly required>
                         <button type="button" id="searchDestAddrBtn" class="secondary">주소 검색</button>
@@ -236,11 +245,11 @@
                 </div>
 
                 <div class="form-group">
-                    <label>교통수단</label>
+                    <label class="required-label">교통수단</label>
                     <div class="radio-group">
-                        <input type="radio" id="publicTransport" name="transportation" value="대중교통" checked>
+                        <input type="radio" id="publicTransport" name="transportation" value="대중교통" checked required>
                         <label for="publicTransport">대중교통</label>
-                        <input type="radio" id="privateCar" name="transportation" value="개인차량">
+                        <input type="radio" id="privateCar" name="transportation" value="개인차량" required>
                         <label for="privateCar">개인차량</label>
                     </div>
                 </div>
@@ -252,15 +261,15 @@
                 </div>
 
                 <div class="form-group">
-                    <label>방문목적</label>
+                    <label class="required-label">방문목적</label>
                     <div class="radio-group">
-                        <input type="radio" id="purposeRegularCheck" name="visitPurpose" value="정기점검" checked>
+                        <input type="radio" id="purposeRegularCheck" name="visitPurpose" value="정기점검" checked required>
                         <label for="purposeRegularCheck">정기점검</label>
-                        <input type="radio" id="purposeMeeting" name="visitPurpose" value="회의">
+                        <input type="radio" id="purposeMeeting" name="visitPurpose" value="회의" required>
                         <label for="purposeMeeting">회의</label>
-                        <input type="radio" id="purposeTroubleshoot" name="visitPurpose" value="장애처리">
+                        <input type="radio" id="purposeTroubleshoot" name="visitPurpose" value="장애처리" required>
                         <label for="purposeTroubleshoot">장애처리</label>
-                        <input type="radio" id="purposeOther" name="visitPurpose" value="기타">
+                        <input type="radio" id="purposeOther" name="visitPurpose" value="기타" required>
                         <label for="purposeOther">기타</label>
                     </div>
                     <input type="text" id="otherPurposeDetail" name="otherPurposeDetail" placeholder="기타 방문목적 입력" disabled>
@@ -312,9 +321,10 @@
         let selectedRowId = null; // 현재 선택된 테이블 행의 ID
         let currentTargetAddressField = null; // 현재 주소 팝업을 띄운 대상 필드 ('start' 또는 'destination')
         
-        // 가상의 사무실 주소 (본인의 실제 사무실 정보로 변경하세요)
+        // 사무실 주소 정의
         const OFFICE_FULL_ADDRESS = '서울시 강서구 양천로 583';
-        const OFFICE_DISPLAY_ADDRESS = '양천로 583'; // 화면에 표시될 주소
+        // 사무실 도로명 주소만 (화면에 표시할 용도)
+        const OFFICE_DISPLAY_ADDRESS = '양천로 583';
 
         document.addEventListener('DOMContentLoaded', function() {
             loadMileageData(); // 초기 데이터 로드 (빈 테이블 또는 샘플 데이터)
@@ -323,4 +333,328 @@
             const startLocationTypeRadios = document.querySelectorAll('input[name="startLocationType"]');
             const startLocationAddressInput = document.getElementById('startLocationAddress');
             const searchStartAddrBtn = document.getElementById('searchStartAddrBtn');
-            const startLocationFullAddressInput = document.
+            const startLocationFullAddressInput = document.getElementById('startLocationFullAddress'); // 숨김 필드
+            
+            startLocationTypeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === '직접입력') {
+                        searchStartAddrBtn.disabled = false; // 주소 검색 버튼 활성화
+                        startLocationAddressInput.value = ''; // 기존 주소 초기화
+                        startLocationFullAddressInput.value = ''; // 전체 주소 초기화
+                    } else { // 사무실 선택 시
+                        searchStartAddrBtn.disabled = true; // 주소 검색 버튼 비활성화
+                        startLocationAddressInput.value = OFFICE_DISPLAY_ADDRESS;
+                        startLocationFullAddressInput.value = OFFICE_FULL_ADDRESS;
+                    }
+                });
+            });
+            // 초기 로드 시 '사무실' 선택되어 있으므로 한 번 실행하여 기본값 설정
+            document.querySelector('input[name="startLocationType"]:checked').dispatchEvent(new Event('change'));
+
+            // === 주소 검색 버튼 이벤트 리스너 ===
+            document.getElementById('searchStartAddrBtn').addEventListener('click', function() {
+                currentTargetAddressField = 'start'; // 현재 검색 대상이 출발지임을 표시
+                openDaumPostcode();
+            });
+
+            document.getElementById('searchDestAddrBtn').addEventListener('click', function() {
+                currentTargetAddressField = 'destination'; // 현재 검색 대상이 목적지임을 표시
+                openDaumPostcode();
+            });
+
+            // === 교통수단 라디오 버튼 이벤트 리스너 ===
+            const transportationRadios = document.querySelectorAll('input[name="transportation"]');
+            const passengersInput = document.getElementById('passengers');
+            transportationRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === '개인차량') {
+                        passengersInput.disabled = false;
+                        passengersInput.focus();
+                    } else {
+                        passengersInput.disabled = true;
+                        passengersInput.value = '';
+                    }
+                });
+            });
+
+            // === 방문목적 라디오 버튼 이벤트 리스너 ===
+            const visitPurposeRadios = document.querySelectorAll('input[name="visitPurpose"]');
+            const otherPurposeDetailInput = document.getElementById('otherPurposeDetail');
+            visitPurposeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === '기타') {
+                        otherPurposeDetailInput.disabled = false;
+                        otherPurposeDetailInput.focus();
+                    } else {
+                        otherPurposeDetailInput.disabled = true;
+                        otherPurposeDetailInput.value = '';
+                    }
+                });
+            });
+
+            // === 폼 제출 이벤트 리스너 (신청 또는 수정) ===
+            document.getElementById('mileageApplicationForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const form = event.target;
+                const newMileageEntry = {
+                    companyProjectName: form.companyProjectName.value,
+                    tripType: document.querySelector('input[name="tripType"]:checked').value, // 라디오 그룹 처리
+                    tripDate: form.tripDate.value,
+                    startLocationType: document.querySelector('input[name="startLocationType"]:checked').value, // 라디오 그룹 처리
+                    startLocationAddress: form.startLocationAddress.value, // 화면 표시 주소
+                    startLocationFullAddress: form.startLocationFullAddress.value, // 전체 주소 (숨김 필드)
+                    destinationAddress: form.destinationAddress.value, // 화면 표시 주소
+                    destinationFullAddress: form.destinationFullAddress.value, // 전체 주소 (숨김 필드)
+                    distance: parseFloat(form.distance.value),
+                    mileageAmount: parseFloat(form.mileageAmount.value),
+                    transportation: document.querySelector('input[name="transportation"]:checked').value, // 라디오 그룹 처리
+                    passengers: form.passengers.disabled ? '' : form.passengers.value,
+                    visitPurpose: document.querySelector('input[name="visitPurpose"]:checked').value, // 라디오 그룹 처리
+                    otherPurposeDetail: form.otherPurposeDetail.disabled ? '' : form.otherPurposeDetail.value,
+                    processingResult: form.processingResult.value
+                };
+
+                // 주소 입력 필수 검증 (화면 표시 주소로 검증)
+                if (!newMileageEntry.startLocationAddress) {
+                    alert("출발지 주소를 검색해주세요.");
+                    return;
+                }
+                if (!newMileageEntry.destinationAddress) {
+                    alert("목적지 주소를 검색해주세요.");
+                    return;
+                }
+
+                const editId = document.getElementById('editMileageId').value;
+                if (editId) {
+                    const index = mileageData.findIndex(item => item.id == editId);
+                    if (index !== -1) {
+                        mileageData[index] = { ...mileageData[index], ...newMileageEntry };
+                        alert("신청 내역이 수정되었습니다.");
+                    }
+                } else {
+                    newMileageEntry.id = nextMileageId++;
+                    mileageData.push(newMileageEntry);
+                    alert("신청이 완료되었습니다. (실제 데이터 저장은 추후 구현 예정)");
+                }
+                
+                resetForm();
+                loadMileageData();
+            });
+
+            // === 초기화 버튼 이벤트 리스너 ===
+            document.getElementById('resetFormButton').addEventListener('click', resetForm);
+
+            // === 수정 버튼 이벤트 리스너 ===
+            document.getElementById('editEntryButton').addEventListener('click', function() {
+                if (selectedRowId === null) {
+                    alert("수정할 항목을 테이블에서 선택해주세요.");
+                    return;
+                }
+                editMileageEntry(selectedRowId);
+            });
+
+            // === 삭제 버튼 이벤트 리스너 ===
+            document.getElementById('deleteEntryButton').addEventListener('click', function() {
+                if (selectedRowId === null) {
+                    alert("삭제할 항목을 테이블에서 선택해주세요.");
+                    return;
+                }
+                if (confirm("선택된 항목을 삭제하시겠습니까?")) {
+                    deleteMileageEntry(selectedRowId);
+                }
+            });
+
+        }); // DOMContentLoaded 끝
+
+
+        // === 다음 우편번호 서비스 팝업 오픈 함수 ===
+        function openDaumPostcode() {
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    // fullAddr: 시/도, 시/군/구, 도로명, 건물번호(-부번) 등을 포함한 전체 도로명 주소 (예: 서울 강서구 양천로 583)
+                    var fullAddr = data.roadAddress; 
+                    if (fullAddr === '') { // 도로명 주소가 없을 경우 지번 주소를 전체 주소로 사용
+                        fullAddr = data.jibunAddress;
+                    }
+                    
+                    // displayAddr: 화면에 표시할 주소 (도로명 + 건물번호만)
+                    // 예: "양천로 583"
+                    var displayAddr = '';
+                    if (data.roadname) { // 도로명이 있다면
+                        displayAddr += data.roadname;
+                        // 건물 본번, 부번 추출 (buildingName이 없거나 사용하기 부적절할 경우)
+                        if (data.buildingCode && data.roadAddress) {
+                            // data.roadAddress에서 '도로명 건물번호' 패턴 추출
+                            // 예를 들어, '서울특별시 강서구 양천로 583' 에서 '583'을 추출
+                            const match = data.roadAddress.match(new RegExp(`${data.roadname.replace(/(\(|\))/g, '\\$&')} (\\d+(-?\\d*))`));
+                            if (match && match[2]) { // 도로명 뒤에 오는 숫자 부분 (건물번호)
+                                displayAddr += ' ' + match[2];
+                            } else if (data.buildingName && data.buildingName !== '') {
+                                // buildingName이 있으면 건물명 추가
+                                displayAddr += ' ' + data.buildingName;
+                            }
+                        } else if (data.buildingName && data.buildingName !== '') {
+                             // buildingName만 있는 경우 (건물번호가 따로 추출되지 않을 때)
+                            displayAddr += ' ' + data.buildingName;
+                        }
+                    } else if (data.jibunAddress) { // 도로명이 없다면 지번 주소를 표시
+                        displayAddr = data.jibunAddress;
+                    }
+
+
+                    if (currentTargetAddressField === 'start') {
+                        document.getElementById('startLocationAddress').value = displayAddr; // 화면 표시
+                        document.getElementById('startLocationFullAddress').value = fullAddr; // 숨김 필드에 전체 저장
+                    } else if (currentTargetAddressField === 'destination') {
+                        document.getElementById('destinationAddress').value = displayAddr; // 화면 표시
+                        document.getElementById('destinationFullAddress').value = fullAddr; // 숨김 필드에 전체 저장
+                    }
+                }
+            }).open();
+        }
+
+        // === 데이터 테이블 로드 및 업데이트 함수 (조회 기능) ===
+        function loadMileageData() {
+            const tableBody = document.getElementById('mileageTableBody');
+            tableBody.innerHTML = '';
+            if (mileageData.length === 0) {
+                const noDataRow = tableBody.insertRow();
+                noDataRow.innerHTML = '<td colspan="9" style="text-align:center;">신청된 마일리지 내역이 없습니다.</td>';
+                return;
+            }
+
+            mileageData.forEach(entry => {
+                const row = tableBody.insertRow();
+                row.dataset.id = entry.id;
+                row.insertCell().textContent = entry.companyProjectName;
+                row.insertCell().textContent = entry.tripType;
+                row.insertCell().textContent = entry.tripDate;
+                // 테이블에는 화면 표시 주소를 사용
+                row.insertCell().textContent = entry.startLocationAddress;
+                row.insertCell().textContent = entry.destinationAddress;
+                row.insertCell().textContent = entry.transportation;
+                row.insertCell().textContent = entry.passengers || '-';
+                row.insertCell().textContent = entry.visitPurpose === '기타' ? `${entry.visitPurpose} (${entry.otherPurposeDetail})` : entry.visitPurpose;
+                row.insertCell().textContent = entry.processingResult;
+
+                row.addEventListener('click', function() {
+                    const currentSelected = document.querySelector('#mileageTableBody .selected');
+                    if (currentSelected) {
+                        currentSelected.classList.remove('selected');
+                    }
+                    this.classList.add('selected');
+                    selectedRowId = this.dataset.id;
+                });
+            });
+
+            if (selectedRowId !== null) {
+                const rowToSelect = document.querySelector(`#mileageTableBody tr[data-id="${selectedRowId}"]`);
+                if (rowToSelect) {
+                    rowToSelect.classList.add('selected');
+                } else {
+                    selectedRowId = null;
+                }
+            }
+        }
+
+        // === 폼 초기화 함수 ===
+        function resetForm() {
+            document.getElementById('mileageApplicationForm').reset();
+
+            // 주소 필드 초기화
+            document.getElementById('startLocationAddress').value = '';
+            document.getElementById('startLocationFullAddress').value = '';
+            document.getElementById('destinationAddress').value = '';
+            document.getElementById('destinationFullAddress').value = '';
+
+            // 라디오 버튼 기본값으로 돌리고 이벤트 강제 발생
+            document.getElementById('roundTrip').checked = true; // 구분 '왕복'으로 초기화
+            document.getElementById('publicTransport').checked = true;
+            document.getElementById('purposeRegularCheck').checked = true;
+            document.getElementById('startOffice').checked = true;
+            document.getElementById('startOffice').dispatchEvent(new Event('change')); // 사무실 주소로 초기화 (자동으로 '사무실' 주소 채워짐)
+            
+            document.getElementById('passengers').disabled = true;
+            document.getElementById('passengers').value = '';
+            document.getElementById('otherPurposeDetail').disabled = true;
+            document.getElementById('otherPurposeDetail').value = '';
+
+            document.getElementById('editMileageId').value = '';
+            document.getElementById('submitButton').textContent = '신청하기';
+            document.getElementById('submitButton').classList.remove('secondary');
+            document.getElementById('submitButton').classList.add('success');
+
+            const currentSelected = document.querySelector('#mileageTableBody .selected');
+            if (currentSelected) {
+                currentSelected.classList.remove('selected');
+            }
+            selectedRowId = null;
+        }
+
+        // === 데이터 수정 (폼에 로드) 함수 ===
+        function editMileageEntry(id) {
+            const entry = mileageData.find(item => item.id == id);
+            if (!entry) return;
+
+            const form = document.getElementById('mileageApplicationForm');
+            form.companyProjectName.value = entry.companyProjectName;
+            
+            // 구분 라디오 버튼 상태 복원
+            document.getElementById(entry.tripType === '편도' ? 'oneWay' : 'roundTrip').checked = true;
+
+            form.tripDate.value = entry.tripDate;
+
+            // 출발지 로딩 (사무실/직접입력 라디오 상태와 주소 복원)
+            document.getElementById(entry.startLocationType === '사무실' ? 'startOffice' : 'startCustom').checked = true;
+            // 라디오 버튼 변경 이벤트를 강제로 발생시켜 주소 및 버튼 상태 업데이트
+            document.querySelector(`input[name="startLocationType"][value="${entry.startLocationType}"]`).dispatchEvent(new Event('change'));
+            
+            if (entry.startLocationType === '직접입력') {
+                form.startLocationAddress.value = entry.startLocationAddress;
+                form.startLocationFullAddress.value = entry.startLocationFullAddress;
+            } else { // 사무실
+                // OFFICE_DISPLAY_ADDRESS와 OFFICE_FULL_ADDRESS는 이미 'change' 이벤트에서 채워졌을 것
+            }
+            
+            // 목적지 로딩
+            form.destinationAddress.value = entry.destinationAddress;
+            form.destinationFullAddress.value = entry.destinationFullAddress;
+
+            form.distance.value = entry.distance;
+            form.mileageAmount.value = entry.mileageAmount;
+
+            // 교통수단 라디오 버튼 상태 복원 및 동승자 필드 제어
+            document.getElementById(entry.transportation === '대중교통' ? 'publicTransport' : 'privateCar').checked = true;
+            document.querySelector(`input[name="transportation"][value="${entry.transportation}"]`).dispatchEvent(new Event('change')); // 동승자 필드 제어를 위해 이벤트 발생
+            if (entry.transportation === '개인차량') {
+                form.passengers.value = entry.passengers; // 값이 이미 채워져야 하므로 disabled 해제 후 값 할당
+            }
+
+            const purposeIdMap = { '정기점검': 'purposeRegularCheck', '회의': 'purposeMeeting', '장애처리': 'purposeTroubleshoot', '기타': 'purposeOther' };
+            document.getElementById(purposeIdMap[entry.visitPurpose]).checked = true;
+            document.querySelector(`input[name="visitPurpose"][value="${entry.visitPurpose}"]`).dispatchEvent(new Event('change')); // 기타 목적 필드 제어를 위해 이벤트 발생
+            if (entry.visitPurpose === '기타') {
+                form.otherPurposeDetail.value = entry.otherPurposeDetail;
+            }
+            
+            form.processingResult.value = entry.processingResult;
+
+            document.getElementById('editMileageId').value = id;
+            document.getElementById('submitButton').textContent = '저장하기';
+            document.getElementById('submitButton').classList.remove('success');
+            document.getElementById('submitButton').classList.add('secondary');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // === 데이터 삭제 함수 ===
+        function deleteMileageEntry(id) {
+            mileageData = mileageData.filter(item => item.id != id);
+            alert("선택된 신청 내역이 삭제되었습니다.");
+            resetForm();
+            loadMileageData();
+        }
+    </script>
+</body>
+</html>
