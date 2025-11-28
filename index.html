@@ -48,14 +48,12 @@
             font-weight: bold;
             color: #555;
         }
-        /* --- 변경된 부분 시작 (필수 항목 강조) --- */
         .required-label::after {
             content: ' *';
             color: #e74c3c; /* 빨간색 별표 */
             font-weight: bold;
             margin-left: 3px;
         }
-        /* --- 변경된 부분 끝 --- */
 
         input[type="text"],
         input[type="date"],
@@ -196,7 +194,7 @@
                     <div class="radio-group">
                         <input type="radio" id="oneWay" name="tripType" value="편도">
                         <label for="oneWay">편도</label>
-                        <input type="radio" id="roundTrip" name="tripType" value="왕복" checked required> <!-- 왕복을 기본 선택 & 필수 항목으로 추가 -->
+                        <input type="radio" id="roundTrip" name="tripType" value="왕복" checked required>
                         <label for="roundTrip">왕복</label>
                     </div>
                 </div>
@@ -472,36 +470,47 @@
         function openDaumPostcode() {
             new daum.Postcode({
                 oncomplete: function(data) {
-                    // fullAddr: 시/도, 시/군/구, 도로명, 건물번호(-부번) 등을 포함한 전체 도로명 주소 (예: 서울 강서구 양천로 583)
-                    var fullAddr = data.roadAddress; 
-                    if (fullAddr === '') { // 도로명 주소가 없을 경우 지번 주소를 전체 주소로 사용
-                        fullAddr = data.jibunAddress;
-                    }
-                    
-                    // displayAddr: 화면에 표시할 주소 (도로명 + 건물번호만)
-                    // 예: "양천로 583"
-                    var displayAddr = '';
-                    if (data.roadname) { // 도로명이 있다면
-                        displayAddr += data.roadname;
-                        // 건물 본번, 부번 추출 (buildingName이 없거나 사용하기 부적절할 경우)
-                        if (data.buildingCode && data.roadAddress) {
-                            // data.roadAddress에서 '도로명 건물번호' 패턴 추출
-                            // 예를 들어, '서울특별시 강서구 양천로 583' 에서 '583'을 추출
-                            const match = data.roadAddress.match(new RegExp(`${data.roadname.replace(/(\(|\))/g, '\\$&')} (\\d+(-?\\d*))`));
-                            if (match && match[2]) { // 도로명 뒤에 오는 숫자 부분 (건물번호)
-                                displayAddr += ' ' + match[2];
-                            } else if (data.buildingName && data.buildingName !== '') {
-                                // buildingName이 있으면 건물명 추가
-                                displayAddr += ' ' + data.buildingName;
+                    var fullAddr = ''; // hidden field에 저장할 전체 주소 (도로명, 건물번호 등)
+                    var displayAddr = ''; // 화면에 표시할 주소 (도로명, 건물번호)
+
+                    if (data.userSelectedType === 'R') { // 사용자가 도로명 주소를 선택했을 경우
+                        if (data.roadAddress) { // 도로명 주소가 있을 경우
+                            // hidden field에 저장할 주소는 '시도 시군구'를 제외한 '도로명 건물번호'로 설정
+                            // data.roadname (도로명), data.bname (법정동), data.buildingName (건물명), data.apartment (공동주택 여부)
+                            // data.roadAddress (전체 도로명 주소: 시도 시군구 도로명 건물번호(건물명))
+                            
+                            // '시도 시군구'를 제외한 부분만 추출
+                            let tempAddr = data.roadAddress;
+                            if (data.sido) tempAddr = tempAddr.replace(data.sido, '').trim();
+                            if (data.sigungu) tempAddr = tempAddr.replace(data.sigungu, '').trim();
+                            
+                            fullAddr = tempAddr; // "양천로 583 (가양동)"
+
+                            // 화면 표시 주소는 '도로명 건물번호' 형태를 유지
+                            displayAddr = data.roadname;
+                            if (data.buildingName && data.buildingName !== '') {
+                                // 건물명에서 불필요한 정보 제거 (예: '(가양동)' 제거)
+                                let cleanBuildingName = data.buildingName.replace(/\s*\(.*\)/, '').trim();
+                                displayAddr += ' ' + cleanBuildingName;
+                            } else {
+                                // 도로명 주소에서 마지막 숫자 부분을 건물번호로 추출
+                                const buildingNumMatch = data.roadAddress.match(new RegExp(`${data.roadname.replace(/(\(|\))/g, '\\$&')}\\s*(\\d+(-?\\d*))\\b`));
+                                if (buildingNumMatch && buildingNumMatch[2]) {
+                                    displayAddr += ' ' + buildingNumMatch[2];
+                                }
                             }
-                        } else if (data.buildingName && data.buildingName !== '') {
-                             // buildingName만 있는 경우 (건물번호가 따로 추출되지 않을 때)
-                            displayAddr += ' ' + data.buildingName;
                         }
-                    } else if (data.jibunAddress) { // 도로명이 없다면 지번 주소를 표시
+                    } else if (data.userSelectedType === 'J') { // 사용자가 지번 주소를 선택했을 경우
+                        fullAddr = data.jibunAddress;
                         displayAddr = data.jibunAddress;
                     }
-
+                    
+                    // 상세 주소가 있을 경우 화면 표시 주소에 추가하지 않고 숨김 필드 fullAddr에만 추가
+                    // 현재는 도로명/건물번호만 표시하는 요구사항에 맞춰 detailAddress는 포함하지 않음
+                    // 상세 주소를 전체 주소에만 추가하려면:
+                    // if (data.detailAddress) {
+                    //     fullAddr += ` ${data.detailAddress}`;
+                    // }
 
                     if (currentTargetAddressField === 'start') {
                         document.getElementById('startLocationAddress').value = displayAddr; // 화면 표시
@@ -569,7 +578,9 @@
             document.getElementById('destinationFullAddress').value = '';
 
             // 라디오 버튼 기본값으로 돌리고 이벤트 강제 발생
-            document.getElementById('roundTrip').checked = true; // 구분 '왕복'으로 초기화
+            document.getElementById('oneWay').checked = false; // 명시적으로 비선택
+            document.getElementById('roundTrip').checked = true; // 왕복으로 초기화
+            
             document.getElementById('publicTransport').checked = true;
             document.getElementById('purposeRegularCheck').checked = true;
             document.getElementById('startOffice').checked = true;
@@ -607,15 +618,10 @@
 
             // 출발지 로딩 (사무실/직접입력 라디오 상태와 주소 복원)
             document.getElementById(entry.startLocationType === '사무실' ? 'startOffice' : 'startCustom').checked = true;
-            // 라디오 버튼 변경 이벤트를 강제로 발생시켜 주소 및 버튼 상태 업데이트
             document.querySelector(`input[name="startLocationType"][value="${entry.startLocationType}"]`).dispatchEvent(new Event('change'));
             
-            if (entry.startLocationType === '직접입력') {
-                form.startLocationAddress.value = entry.startLocationAddress;
-                form.startLocationFullAddress.value = entry.startLocationFullAddress;
-            } else { // 사무실
-                // OFFICE_DISPLAY_ADDRESS와 OFFICE_FULL_ADDRESS는 이미 'change' 이벤트에서 채워졌을 것
-            }
+            form.startLocationAddress.value = entry.startLocationAddress;
+            form.startLocationFullAddress.value = entry.startLocationFullAddress;
             
             // 목적지 로딩
             form.destinationAddress.value = entry.destinationAddress;
@@ -626,14 +632,14 @@
 
             // 교통수단 라디오 버튼 상태 복원 및 동승자 필드 제어
             document.getElementById(entry.transportation === '대중교통' ? 'publicTransport' : 'privateCar').checked = true;
-            document.querySelector(`input[name="transportation"][value="${entry.transportation}"]`).dispatchEvent(new Event('change')); // 동승자 필드 제어를 위해 이벤트 발생
+            document.querySelector(`input[name="transportation"][value="${entry.transportation}"]`).dispatchEvent(new Event('change'));
             if (entry.transportation === '개인차량') {
-                form.passengers.value = entry.passengers; // 값이 이미 채워져야 하므로 disabled 해제 후 값 할당
+                form.passengers.value = entry.passengers;
             }
 
             const purposeIdMap = { '정기점검': 'purposeRegularCheck', '회의': 'purposeMeeting', '장애처리': 'purposeTroubleshoot', '기타': 'purposeOther' };
             document.getElementById(purposeIdMap[entry.visitPurpose]).checked = true;
-            document.querySelector(`input[name="visitPurpose"][value="${entry.visitPurpose}"]`).dispatchEvent(new Event('change')); // 기타 목적 필드 제어를 위해 이벤트 발생
+            document.querySelector(`input[name="visitPurpose"][value="${entry.visitPurpose}"]`).dispatchEvent(new Event('change'));
             if (entry.visitPurpose === '기타') {
                 form.otherPurposeDetail.value = entry.otherPurposeDetail;
             }
