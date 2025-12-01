@@ -484,34 +484,14 @@
                             if (data.sido) tempAddr = tempAddr.replace(data.sido, '').trim();
                             if (data.sigungu) tempAddr = tempAddr.replace(data.sigungu, '').trim();
                             
-                            fullAddr = tempAddr; // "양천로 583 (가양동)"
-
-                            // 화면 표시 주소는 '도로명 건물번호' 형태를 유지
-                            displayAddr = data.roadname;
-                            if (data.buildingName && data.buildingName !== '') {
-                                // 건물명에서 불필요한 정보 제거 (예: '(가양동)' 제거)
-                                let cleanBuildingName = data.buildingName.replace(/\s*\(.*\)/, '').trim();
-                                displayAddr += ' ' + cleanBuildingName;
-                            } else {
-                                // 도로명 주소에서 마지막 숫자 부분을 건물번호로 추출
-                                const buildingNumMatch = data.roadAddress.match(new RegExp(`${data.roadname.replace(/(\(|\))/g, '\\$&')}\\s*(\\d+(-?\\d*))\\b`));
-                                if (buildingNumMatch && buildingNumMatch[2]) {
-                                    displayAddr += ' ' + buildingNumMatch[2];
-                                }
-                            }
+                            fullAddr = data.roadname;
+                            displayAddr = tempAddr; // "양천로 583 (가양동)"
                         }
                     } else if (data.userSelectedType === 'J') { // 사용자가 지번 주소를 선택했을 경우
                         fullAddr = data.jibunAddress;
                         displayAddr = data.jibunAddress;
                     }
                     
-                    // 상세 주소가 있을 경우 화면 표시 주소에 추가하지 않고 숨김 필드 fullAddr에만 추가
-                    // 현재는 도로명/건물번호만 표시하는 요구사항에 맞춰 detailAddress는 포함하지 않음
-                    // 상세 주소를 전체 주소에만 추가하려면:
-                    // if (data.detailAddress) {
-                    //     fullAddr += ` ${data.detailAddress}`;
-                    // }
-
                     if (currentTargetAddressField === 'start') {
                         document.getElementById('startLocationAddress').value = displayAddr; // 화면 표시
                         document.getElementById('startLocationFullAddress').value = fullAddr; // 숨김 필드에 전체 저장
